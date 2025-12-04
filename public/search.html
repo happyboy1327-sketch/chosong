@@ -298,95 +298,83 @@
         <div id="results" class="results"></div>
     </div>
 
-    <script>
-        const searchInput = document.getElementById('searchInput');
-        const resultsDiv = document.getElementById('results');
-        const resultCountDiv = document.getElementById('resultCount');
+<script>
+const searchInput = document.getElementById('searchInput');
+const resultsDiv = document.getElementById('results');
+const resultCountDiv = document.getElementById('resultCount');
 
-        // 엔터 키로 검색
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                search();
-            }
-        });
+// 엔터 키로 검색
+searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') search();
+});
 
+function escapeHtml(text = '') {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
 
+async function search() {
+    const word = searchInput.value.trim();
 
-    async function search() {
-        const word = searchInput.value.trim();
+    if (!word) {
+        resultsDiv.innerHTML = '<div class="no-results">검색어를 입력하세요.</div>';
+        resultCountDiv.innerHTML = '';
+        return;
+    }
 
-        if (!word) {
-            resultsDiv.innerHTML = '<div class="no-results">검색어를 입력하세요.</div>';
+    resultsDiv.innerHTML = '<div class="loading">검색 중...</div>';
+    resultCountDiv.innerHTML = '';
+
+    try {
+        const res = await fetch(`/api/search?word=${encodeURIComponent(word)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const results = await res.json();
+
+        if (!Array.isArray(results) || results.length === 0) {
+            resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.</div>';
             resultCountDiv.innerHTML = '';
             return;
         }
 
-        resultsDiv.innerHTML = '<div class="loading">검색 중...</div>';
-        resultCountDiv.innerHTML = '';
-
-        try {
-            // 변경: localhost 고정 제거 -> 상대 경로 사용
-            const response = await fetch(`/api/search?word=${encodeURIComponent(word)}`);
-            const results = await response.json();
-
-            if (results.length === 0) {
-                resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.</div>';
-                resultCountDiv.innerHTML = '';
-            } else {
-                resultCountDiv.innerHTML = `검색 결과: ${results.length}개`;
-                resultsDiv.innerHTML = results.map(item => `
-                    <div class="result-item">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div class="word">${escapeHtml(item.word)}</div>
-                                ${item.hint ? `<div class="hint">${escapeHtml(item.hint)}</div>` : ''}
-                            </div>
-                            <button onclick="addToQuiz('${escapeHtml(item.word).replace(/'/g, "\\'")}', '${escapeHtml(item.hint).replace(/'/g, "\\'")}')">+</button>
-                        </div>
+        resultCountDiv.innerHTML = `검색 결과: ${results.length}개`;
+        resultsDiv.innerHTML = results.map(item => `
+            <div class="result-item">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div class="word">${escapeHtml(item.word)}</div>
+                        ${item.hint ? `<div class="hint">${escapeHtml(item.hint)}</div>` : ''}
                     </div>
-                `).join('');
-            }
-        } catch (error) {
-            resultsDiv.innerHTML = '<div class="no-results">오류가 발생했습니다.</div>';
-            console.error('Search error:', error);
-        }
+                    <button class="add-btn" data-word="${escapeHtml(item.word)}" data-hint="${escapeHtml(item.hint || '')}">+</button>
+                </div>
+            </div>
+        `).join('');
+
+        // delegated event handling for dynamic add buttons
+        resultsDiv.querySelectorAll('.add-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                addToQuiz(btn.dataset.word, btn.dataset.hint);
+            });
+        });
+
+    } catch (error) {
+        resultsDiv.innerHTML = '<div class="no-results">오류가 발생했습니다.</div>';
+        console.error('Search error:', error);
     }
+}
 
-    async function addToQuiz(word, hint) {
-        try {
-            // 변경: localhost 고정 제거 -> 상대 경로 사용
-            const response = await fetch(`/api/add-word?word=${encodeURIComponent(word)}&hint=${encodeURIComponent(hint)}`);
-            const result = await response.json();
-            alert(result.message);
-        } catch (error) {
-            alert('추가 실패: ' + error.message);
-        }
+async function addToQuiz(word, hint) {
+    try {
+        const res = await fetch(`/api/add-word?word=${encodeURIComponent(word)}&hint=${encodeURIComponent(hint)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result = await res.json();
+        alert(result.message || '추가 완료');
+    } catch (error) {
+        alert('추가 실패: ' + (error.message || error));
     }
+}
 
-
-        function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-        }
-
-        async function addToQuiz(word, hint) {
-            try {
-                const response = await fetch(`http://localhost:8080/api/add-word?word=${encodeURIComponent(word)}&hint=${encodeURIComponent(hint)}`);
-                const result = await response.json();
-                alert(result.message);
-            } catch (error) {
-                alert('추가 실패: ' + error.message);
-            }
-        }
-
-        // 페이지 로드 시 포커스
-        searchInput.focus();
-    </script>
+// 페이지 로드 시 포커스
+searchInput.focus();
+</script>
 </body>
 </html>
