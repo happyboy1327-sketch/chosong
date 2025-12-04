@@ -17,9 +17,20 @@ const ZIP_PATH = './dict.zip';
 // Firebase 서비스 계정 JSON을 환경변수로 저장한 경우
 let serviceAccount = null;
 try {
-  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+  let accountStr = process.env.FIREBASE_SERVICE_ACCOUNT || '{}';
+  
+  // Base64 인코딩된 경우 디코딩
+  if (accountStr.startsWith('ey') || accountStr.length > 500) {
+    try {
+      accountStr = Buffer.from(accountStr, 'base64').toString('utf-8');
+    } catch (e) {
+      // Base64 아니면 그냥 사용
+    }
+  }
+  
+  serviceAccount = JSON.parse(accountStr);
 } catch (e) {
-  console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT 파싱 실패 또는 빈값. (배포 시 Vercel 환경변수 확인)');
+  console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT 파싱 실패:', e.message);
 }
 
 if (serviceAccount && Object.keys(serviceAccount).length > 0) {
@@ -27,6 +38,7 @@ if (serviceAccount && Object.keys(serviceAccount).length > 0) {
     credential: admin.credential.cert(serviceAccount),
     databaseURL: process.env.FIREBASE_DATABASE_URL
   });
+  console.log('✅ Firebase 초기화 성공');
 } else {
   console.warn('⚠️ Firebase 초기화 건너뜀 (환경변수 누락). 일부 API는 동작하지 않을 수 있음.');
 }
