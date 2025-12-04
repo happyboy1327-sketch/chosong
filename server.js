@@ -38,6 +38,22 @@ app.use(cors());
 // Express static은 로컬 개발에서 편리. Vercel은 vercel.json으로 정적 제공 권장.
 app.use(express.static(path.join(process.cwd(), "public")));
 
+// 진단용 로깅/검사 (붙여 넣어라)
+app.use((req, res, next) => {
+  console.log(`[[REQ]] ${new Date().toISOString()} ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+app.get("/api/ping", (req, res) => {
+  res.json({ ok: true, now: new Date().toISOString(), pid: process.pid });
+});
+
+app.get("/api/test-search", (req, res) => {
+  const q = (req.query.word || req.query.q || "").trim();
+  if (!q) return res.json([]);
+  return res.json([{ word: "테스트단어", hint: "임시" }, { word: q + "_매칭", hint: "임시" }]);
+});
+
 // =====================
 // 초성 추출
 // =====================
@@ -193,14 +209,13 @@ function shuffleArray(arr) {
 // 검색 API
 // =====================
 app.get("/api/search", async (req, res) => {
-  const word = req.query.word?.trim();
-  console.log(`🔎 [검색] 요청: "${word}"`);
-  
-  if (!word) {
-    return res.json([]);
-  }
-  
-  const results = [];
+    const q = (req.query.q || "").trim();
+    if (!q) return res.json([]);
+
+    const db = await loadDict();
+    const results = db.filter(item => item.word.includes(q));
+
+    res.json(results);
 
   // ZIP에서 검색 (비동기 스트림 처리)
   let responded = false;
@@ -497,3 +512,5 @@ startServer().catch(err => console.error('startServer failed:', err && err.messa
 
 // Vercel용 export (ES module)
 export default app;
+
+
