@@ -38,6 +38,21 @@ app.use(cors());
 // Express static은 로컬 개발에서 편리. Vercel은 vercel.json으로 정적 제공 권장.
 app.use(express.static(path.join(process.cwd(), "public")));
 
+// Favicon 404 제거
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end(); // No Content (204)
+});
+
+// 루트 경로에서 index.html 서빙
+app.get("/", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "public", "index.html"), (err) => {
+    if (err) {
+      console.warn("⚠️ index.html을 찾을 수 없습니다");
+      res.status(404).json({ error: "index.html not found" });
+    }
+  });
+});
+
 // 진단용 로깅/검사 (붙여 넣어라)
 app.use((req, res, next) => {
   console.log(`[[REQ]] ${new Date().toISOString()} ${req.method} ${req.originalUrl}`);
