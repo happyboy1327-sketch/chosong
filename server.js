@@ -500,7 +500,5 @@ async function startServer() {
 // Start (import 시 자동 초기화; Vercel에서는 함수 cold start 시 동작함)
 startServer().catch(err => console.error('startServer failed:', err && err.message));
 
-// Vercel용 export (ES module)
-export default app;
 
 
