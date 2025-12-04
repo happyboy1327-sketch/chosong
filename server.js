@@ -212,7 +212,7 @@ app.get("/api/search", async (req, res) => {
   const q = (req.query.q || "").trim();
   if (!q) return res.json([]);
 
-  const db = await loadDict();
+  const db = await loadDictionary();
   const results = db.filter(item => item.word.includes(q));
 
   let responded = false;
