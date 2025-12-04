@@ -326,18 +326,21 @@ async function search() {
     resultCountDiv.innerHTML = '';
 
     try {
-        const res = await fetch(`/api/search?word=${encodeURIComponent(word)}`);
+        // 서버는 word 파라미터를 받는다.
+        const res = await fetch(`/api/search?q=${encodeURIComponent(word)}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const results = await res.json();
+        
+        const data = await res.json();  // 서버의 검색 결과 배열
 
-        if (!Array.isArray(results) || results.length === 0) {
+        if (!Array.isArray(data) || data.length === 0) {
             resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.</div>';
             resultCountDiv.innerHTML = '';
             return;
         }
 
-        resultCountDiv.innerHTML = `검색 결과: ${results.length}개`;
-        resultsDiv.innerHTML = results.map(item => `
+        resultCountDiv.innerHTML = `검색 결과: ${data.length}개`;
+
+        resultsDiv.innerHTML = data.map(item => `
             <div class="result-item">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
@@ -349,7 +352,7 @@ async function search() {
             </div>
         `).join('');
 
-        // delegated event handling for dynamic add buttons
+        // 동적 버튼 이벤트 바인딩
         resultsDiv.querySelectorAll('.add-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 addToQuiz(btn.dataset.word, btn.dataset.hint);

@@ -209,22 +209,19 @@ function shuffleArray(arr) {
 // 검색 API
 // =====================
 app.get("/api/search", async (req, res) => {
-    const q = (req.query.q || "").trim();
-    if (!q) return res.json([]);
+  const q = (req.query.q || "").trim();
+  if (!q) return res.json([]);
 
-    const db = await loadDict();
-    const results = db.filter(item => item.word.includes(q));
+  const db = await loadDict();
+  const results = db.filter(item => item.word.includes(q));
 
-    res.json(results);
-
-  // ZIP에서 검색 (비동기 스트림 처리)
   let responded = false;
-  yauzl.open(ZIP_PATH, {lazyEntries: true, decodeStrings: false}, (err, zipfile) => {
+
+  yauzl.open(ZIP_PATH, { lazyEntries: true, decodeStrings: false }, (err, zipfile) => {
     if (err || !zipfile) {
-      console.error(`❌ [검색 오류] ZIP 열기 실패:`, err && err.message);
       if (!responded) {
         responded = true;
-        return res.json([]);
+        return res.json(results);   // DB 결과만이라도 반환
       }
       return;
     }
@@ -238,23 +235,22 @@ app.get("/api/search", async (req, res) => {
 
       zipfile.openReadStream(entry, (err, stream) => {
         if (err || !stream) {
-          console.error(`❌ [검색 오류] 스트림 열기 실패:`, err && err.message);
           return zipfile.readEntry();
         }
 
-        const bufferParts = [];
-        stream.on("data", chunk => bufferParts.push(chunk));
+        const chunks = [];
+        stream.on("data", ch => chunks.push(ch));
         stream.on("end", () => {
           try {
-            const jsonStr = Buffer.concat(bufferParts).toString('utf8');
-            const parsed = JSON.parse(jsonStr);
+            const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
             const items = parsed?.channel?.item;
 
             if (Array.isArray(items)) {
               for (const raw of items) {
                 const wordRaw = raw?.word_info?.word;
                 if (!wordRaw) continue;
-                if (wordRaw.toLowerCase().includes(word.toLowerCase())) {
+
+                if (wordRaw.toLowerCase().includes(q.toLowerCase())) {
                   const hint = extractHint(raw.word_info?.pos_info, raw.word_info);
                   results.push({
                     word: wordRaw,
@@ -263,37 +259,16 @@ app.get("/api/search", async (req, res) => {
                 }
               }
             }
-          } catch (e) {
-            console.error(`❌ [검색 JSON파싱] ${entry.fileName}:`, e && e.message);
-          } finally {
-            zipfile.readEntry();
-          }
-        });
-
-        stream.on("error", (sErr) => {
-          console.error(`❌ [검색 스트림] 읽기 오류:`, sErr && sErr.message);
+          } catch (e) {}
           zipfile.readEntry();
         });
       });
     });
 
     zipfile.on("end", () => {
-      try {
-        if (!responded) {
-          responded = true;
-          console.log(`✅ [검색] 완료: ${results.length}개 단어 찾음`);
-          return res.json(results);
-        }
-      } finally {
-        try { zipfile.close(); } catch (_) {}
-      }
-    });
-
-    zipfile.on("error", (zErr) => {
-      console.error(`❌ [검색 ZIP오류]:`, zErr && zErr.message);
       if (!responded) {
         responded = true;
-        res.json([]);
+        return res.json(results);
       }
     });
   });
