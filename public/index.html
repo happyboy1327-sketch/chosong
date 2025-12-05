@@ -255,65 +255,102 @@ button {
 </div>
 
 <script>
-let quizData=[], currentIndex=-1;
-const CHO_LIST=[ 'ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ' ];
+let quizData = [], currentIndex = -1;
+const CHO_LIST = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 
-function getChosung(str){
-  let result="";
-  for(const c of str){
-    if(c===" "){ result+=" "; continue; }
-    const code=c.charCodeAt(0);
-    if(code>=0xAC00 && code<=0xD7A3){ result+=CHO_LIST[Math.floor((code-0xAC00)/588)]; }
+function getChosung(str) {
+  let result = "";
+  for (const c of str) {
+    if (c === " ") { result += " "; continue; }
+    const code = c.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+      result += CHO_LIST[Math.floor((code - 0xAC00) / 588)];
+    } else {
+      // 한글이 아니면 그대로 공백 처리
+      result += c;
+    }
   }
   return result;
 }
 
-function cleanWord(w){ return w.replace(/\d+$/+"("+")",""); }
+// 안전한 cleanWord: 끝의 숫자들 제거, 끝의 괄호 형태 "(123)" 제거 예시
+function cleanWord(w) {
+  if (!w || typeof w !== 'string') return '';
+  // 예: "단어123" -> "단어", "단어(123)" -> "단어"
+  return w.replace(/\(\d+\)$/, '').replace(/\d+$/, '').trim();
+}
 
-function getnextQuiz(){
+function getnextQuiz() {
+  if (!Array.isArray(quizData) || quizData.length === 0) {
+    document.getElementById("question").innerText = "문제가 없습니다.";
+    document.getElementById("hint").innerText = "";
+    return;
+  }
   currentIndex++;
-  if(currentIndex>=quizData.length) currentIndex=0;
-  const q=quizData[currentIndex];
-  if(!q) return;
-  const clean=cleanWord(q.word);
-  window.currentQuiz={...q, word:clean};
-  document.getElementById("question").innerText="| "+getChosung(clean)+" |";
-  document.getElementById("hint").innerText="※뜻: "+q.hint;
-  document.getElementById("result").innerText="";
-  document.getElementById("answerInput").value="";
-  document.getElementById("answerInput").focus();
+  if (currentIndex >= quizData.length) currentIndex = 0;
+  const q = quizData[currentIndex];
+  if (!q) return;
+  const clean = cleanWord(q.word || '');
+  window.currentQuiz = { ...q, word: clean };
+  document.getElementById("question").innerText = "| " + getChosung(clean) + " |";
+  document.getElementById("hint").innerText = "※뜻: " + (q.hint || '정보 없음');
+  document.getElementById("result").innerText = "";
+  const ai = document.getElementById("answerInput");
+  ai.value = "";
+  ai.focus();
 }
 
 // 초기 문제 배치
-async function loadBatch(){
-  try{
-    const res=await fetch("/api/newbatch");
-    const data=await res.json();
-    quizData=data;
+async function loadBatch() {
+  try {
+    const res = await fetch("/api/newbatch", { method: 'GET' });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('newbatch error', res.status, text);
+      document.getElementById("question").innerText = "로드 실패";
+      return;
+    }
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await res.text();
+      console.error('newbatch non-json response', text);
+      document.getElementById("question").innerText = "로드 실패";
+      return;
+    }
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      quizData = [];
+      document.getElementById("question").innerText = "문제가 없습니다.";
+      return;
+    }
+    quizData = data;
+    currentIndex = -1;
     getnextQuiz();
-  }catch(e){ console.error(e); document.getElementById("question").innerText="로드 실패"; }
+  } catch (e) {
+    console.error('loadBatch exception', e);
+    document.getElementById("question").innerText = "로드 실패";
+  }
 }
 loadBatch();
 
-
 // 정답 확인
-document.getElementById("checkBtn").onclick=()=>{
-  const input=document.getElementById("answerInput").value.trim();
-  if(!window.currentQuiz) return;
-  if(input===window.currentQuiz.word){
-    document.getElementById("result").innerText="✅ 정답!";
-    document.getElementById("result").style.color="#00796b";
+document.getElementById("checkBtn").onclick = () => {
+  const input = document.getElementById("answerInput").value.trim();
+  if (!window.currentQuiz) return;
+  if (input === window.currentQuiz.word) {
+    document.getElementById("result").innerText = "✅ 정답!";
+    document.getElementById("result").style.color = "#00796b";
   } else {
-    document.getElementById("result").innerText="❌ 오답. 정답: "+window.currentQuiz.word;
-    document.getElementById("result").style.color="#d32f2f";
+    document.getElementById("result").innerText = "❌ 오답. 정답: " + window.currentQuiz.word;
+    document.getElementById("result").style.color = "#d32f2f";
   }
 };
 
 // 다음 문제
-document.getElementById("nextBtn").onclick=getnextQuiz;
+document.getElementById("nextBtn").onclick = getnextQuiz;
 
-document.getElementById("searchBtn").onclick=()=>{
-  window.location.href="/search.html";
+document.getElementById("searchBtn").onclick = () => {
+  window.location.href = "/search.html";
 };
 </script>
 </body>
