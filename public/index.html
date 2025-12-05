@@ -268,7 +268,7 @@ function getChosung(str){
   return result;
 }
 
-function cleanWord(w){ return w.replace(/\d+$/,""); }
+function cleanWord(w){ return w.replace(/\d+$/+"("+")",""); }
 
 function getnextQuiz(){
   currentIndex++;

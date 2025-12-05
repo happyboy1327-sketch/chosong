@@ -313,71 +313,89 @@ function escapeHtml(text = '') {
     return String(text).replace(/[&<>"']/g, m => map[m]);
 }
 
-async function search() {
+  async function search() {
     const word = searchInput.value.trim();
-
     if (!word) {
-        resultsDiv.innerHTML = '<div class="no-results">검색어를 입력하세요.</div>';
-        resultCountDiv.innerHTML = '';
-        return;
+      resultsDiv.innerHTML = '<div class="no-results">검색어를 입력하세요.</div>';
+      resultCountDiv.innerHTML = '';
+      return;
     }
-
     resultsDiv.innerHTML = '<div class="loading">검색 중...</div>';
     resultCountDiv.innerHTML = '';
 
     try {
-        // 서버는 word 파라미터를 받는다.
-        const res = await fetch(`/api/search?q=${encodeURIComponent(word)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        
-        const data = await res.json();  // 서버의 검색 결과 배열
+      const res = await fetch(`/api/search?q=${encodeURIComponent(word)}`, { method: 'GET' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        throw new Error('서버가 JSON을 반환하지 않음: ' + text.slice(0, 200));
+      }
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.</div>';
+        resultCountDiv.innerHTML = '';
+        return;
+      }
 
-        if (!Array.isArray(data) || data.length === 0) {
-            resultsDiv.innerHTML = '<div class="no-results">검색 결과가 없습니다.</div>';
-            resultCountDiv.innerHTML = '';
-            return;
+      resultCountDiv.textContent = `검색 결과: ${data.length}개`;
+      resultsDiv.innerHTML = '';
+      data.forEach(item => {
+        const wrap = document.createElement('div');
+        wrap.className = 'result-item';
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+
+        const left = document.createElement('div');
+        const w = document.createElement('div');
+        w.className = 'word';
+        w.textContent = item.word || '';
+        left.appendChild(w);
+        if (item.hint) {
+          const h = document.createElement('div');
+          h.className = 'hint';
+          h.textContent = item.hint;
+          left.appendChild(h);
         }
 
-        resultCountDiv.innerHTML = `검색 결과: ${data.length}개`;
+        const btn = document.createElement('button');
+        btn.className = 'add-btn';
+        btn.type = 'button';
+        btn.textContent = '+';
+        btn.dataset.word = item.word || '';
+        btn.dataset.hint = item.hint || '';
 
-        resultsDiv.innerHTML = data.map(item => `
-            <div class="result-item">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div class="word">${escapeHtml(item.word)}</div>
-                        ${item.hint ? `<div class="hint">${escapeHtml(item.hint)}</div>` : ''}
-                    </div>
-                    <button class="add-btn" data-word="${escapeHtml(item.word)}" data-hint="${escapeHtml(item.hint || '')}">+</button>
-                </div>
-            </div>
-        `).join('');
+        row.appendChild(left);
+        row.appendChild(btn);
+        wrap.appendChild(row);
+        resultsDiv.appendChild(wrap);
 
-        // 동적 버튼 이벤트 바인딩
-        resultsDiv.querySelectorAll('.add-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                addToQuiz(btn.dataset.word, btn.dataset.hint);
-            });
-        });
+        btn.addEventListener('click', () => addToQuiz(btn.dataset.word, btn.dataset.hint));
+      });
 
     } catch (error) {
-        resultsDiv.innerHTML = '<div class="no-results">오류가 발생했습니다.</div>';
-        console.error('Search error:', error);
+      resultsDiv.innerHTML = `<div class="no-results">오류가 발생했습니다: ${escapeHtml(error.message || String(error))}</div>`;
+      console.error('Search error:', error);
     }
-}
+  }
 
-async function addToQuiz(word, hint) {
+  async function addToQuiz(word, hint) {
     try {
-        const res = await fetch(`/api/add-word?word=${encodeURIComponent(word)}&hint=${encodeURIComponent(hint)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const result = await res.json();
-        alert(result.message || '추가 완료');
+      const res = await fetch(`/api/add-word?word=${encodeURIComponent(word)}&hint=${encodeURIComponent(hint)}`, { method: 'GET' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        throw new Error('서버가 JSON을 반환하지 않음: ' + text.slice(0, 200));
+      }
+      const result = await res.json();
+      alert(result.message || '추가 완료');
     } catch (error) {
-        alert('추가 실패: ' + (error.message || error));
+      alert('추가 실패: ' + (error.message || error));
     }
-}
-
-// 페이지 로드 시 포커스
-searchInput.focus();
+  }
 </script>
 </body>
 </html>
