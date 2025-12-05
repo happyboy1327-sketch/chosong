@@ -1,3 +1,4 @@
+// 파일: api/search.js
 const fs = require('fs');
 const path = require('path');
 const yauzl = require('yauzl');
@@ -5,7 +6,6 @@ const yauzl = require('yauzl');
 const ZIP_PATH = path.join(__dirname, '..', 'dict.zip'); // 프로젝트 루트/dict.zip
 
 function setCorsHeaders(res) {
-  // 필요에 따라 '*' 대신 특정 도메인으로 변경하세요
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
@@ -89,10 +89,7 @@ function readZipMatches(q, timeoutMs = 5000) {
 
 module.exports = async (req, res) => {
   try {
-    // 모든 응답에 CORS 헤더 설정
     setCorsHeaders(res);
-
-    // 프리플라이트 요청 처리
     if (req.method === 'OPTIONS') {
       return res.status(204).send('');
     }
@@ -102,8 +99,7 @@ module.exports = async (req, res) => {
 
     if (!q) return res.status(200).send(JSON.stringify([]));
 
-    const results = []; // dict.json 사용 안함
-
+    const results = [];
     const zipMatches = await readZipMatches(q, 5000);
     for (const m of zipMatches) {
       if (!results.some(r => String(r.word) === String(m.word))) results.push(m);
