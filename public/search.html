@@ -304,17 +304,12 @@ const searchInput = document.getElementById('searchInput');
 const resultsDiv = document.getElementById('results');
 const resultCountDiv = document.getElementById('resultCount');
 
-searchInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') search();
-});
-
-function escapeHtml(text = '') {
-  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-  return String(text).replace(/[&<>"']/g, m => map[m]);
+function escapeHtml(text='') {
+  return String(text).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 }
 
 async function search() {
-  const word = searchInput.value.trim();
+  const word = (searchInput && searchInput.value || '').trim();
   if (!word) {
     resultsDiv.innerHTML = '<div class="no-results">검색어를 입력하세요.</div>';
     resultCountDiv.innerHTML = '';
@@ -325,12 +320,13 @@ async function search() {
 
   try {
     const res = await fetch(`/api/search?q=${encodeURIComponent(word)}`, { method: 'GET' });
+    // 상태 코드 체크
     if (!res.ok) {
-      const text = await res.text();
+      const text = await res.text().catch(()=>'');
       throw new Error(`서버 오류 ${res.status}: ${text.slice(0,200)}`);
     }
 
-    const contentType = res.headers.get('content-type') || '';
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
     let data;
     if (contentType.includes('application/json')) {
       data = await res.json();
@@ -347,11 +343,9 @@ async function search() {
 
     resultCountDiv.textContent = `검색 결과: ${data.length}개`;
     resultsDiv.innerHTML = '';
-
     data.forEach(item => {
       const wrap = document.createElement('div');
       wrap.className = 'result-item';
-
       const row = document.createElement('div');
       row.style.display = 'flex';
       row.style.justifyContent = 'space-between';
@@ -362,7 +356,6 @@ async function search() {
       w.className = 'word';
       w.textContent = item.word || '';
       left.appendChild(w);
-
       if (item.hint) {
         const h = document.createElement('div');
         h.className = 'hint';
@@ -395,10 +388,10 @@ async function addToQuiz(word, hint) {
   try {
     const res = await fetch(`/api/add-word?word=${encodeURIComponent(word)}&hint=${encodeURIComponent(hint)}`, { method: 'GET' });
     if (!res.ok) {
-      const text = await res.text();
+      const text = await res.text().catch(()=>'');
       throw new Error(`서버 오류 ${res.status}: ${text.slice(0,200)}`);
     }
-    const contentType = res.headers.get('content-type') || '';
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
     if (!contentType.includes('application/json')) {
       const text = await res.text();
       throw new Error('서버가 JSON을 반환하지 않음: ' + text.slice(0,200));
@@ -409,9 +402,7 @@ async function addToQuiz(word, hint) {
     alert('추가 실패: ' + (error.message || error));
   }
 }
-
-// 페이지 로드 시 포커스
-searchInput.focus();
 </script>
+
 </body>
 </html>
